@@ -147,7 +147,7 @@ XGBoost       ──┘
 
 ## 👨‍💻 Author
 
-**Kuldeep** — Big Data Capstone Project (Sem 3–4)
+**Kuldeep**
 
 [![GitHub](https://img.shields.io/badge/GitHub-KuldeepB19-black?logo=github)](https://github.com/KuldeepB19)
 
