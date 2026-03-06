@@ -5,8 +5,21 @@
 ![Scikit-learn](https://img.shields.io/badge/Scikit--learn-1.3+-orange?logo=scikitlearn)
 ![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-green)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
-A full-stack Machine Learning web app that detects fraudulent UPI transactions in real time — **no database, no complex setup, just 3 commands.**
+> **A full-stack Machine Learning web app that detects fraudulent UPI transactions in real time — no database, no complex setup, just 3 commands.**
+
+---
+
+## 📌 Table of Contents
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Project Structure](#️-project-structure)
+- [How It Works](#-how-it-works)
+- [Models](#-models)
+- [Risk Score Logic](#-risk-score-logic)
+- [Tech Stack](#️-tech-stack)
+- [Author](#️-author)
 
 ---
 
@@ -28,7 +41,7 @@ A full-stack Machine Learning web app that detects fraudulent UPI transactions i
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/upi-fraud-detection.git
+git clone https://github.com/KuldeepB19/upi-fraud-detection.git
 cd upi-fraud-detection
 
 # 2. Install dependencies
@@ -38,7 +51,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-That's it. The app auto-generates data and trains models on first run.
+> The app **auto-generates synthetic data** and **trains both models** on the very first run. No setup needed.
 
 ---
 
@@ -52,64 +65,94 @@ upi-fraud-detection/
 │   ├── 2_📊_Data_Explorer.py     ← Filter & browse data
 │   └── 3_📁_Upload_CSV.py        ← Bulk CSV analysis
 ├── src/
-│   ├── data_generator.py         ← Synthetic data generator
-│   ├── train_model.py            ← RF + XGBoost training
-│   └── utils.py                  ← Shared helpers
+│   ├── data_generator.py         ← Synthetic UPI data generator
+│   ├── train_model.py            ← RF + XGBoost training pipeline
+│   └── utils.py                  ← Shared helpers & preprocessing
 ├── models/                       ← Saved .pkl model files
-├── data/                         ← Auto-generated CSV
-├── notebooks/
-│   └── UPI_Fraud_Detection.ipynb ← Google Colab version
-├── .streamlit/config.toml        ← Dark theme
+├── .streamlit/config.toml        ← Dark theme config
 └── requirements.txt
 ```
 
 ---
 
+## 🧠 How It Works
+
+```
+User Input / CSV
+      ↓
+Feature Engineering
+(is_night, is_high_amount, is_unknown_location, ...)
+      ↓
+Random Forest  ──┐
+                 ├──→ Ensemble Risk Score (0–100%)
+XGBoost       ──┘
+      ↓
+🟢 Legitimate / 🟡 Review / 🔴 Fraud
+```
+
+1. **Data Generation** — Synthetic UPI transactions are created with realistic fraud patterns (night transfers, high amounts, unknown locations)
+2. **Feature Engineering** — Raw fields are transformed into ML-ready features
+3. **Dual Model Prediction** — Both RF and XGBoost give independent scores
+4. **Risk Scoring** — Scores are averaged and mapped to a 0–100% fraud probability
+
+---
+
 ## 🤖 Models
 
-| Model | Algorithm | Tuning |
-|-------|-----------|--------|
+| Model | Algorithm | Handling Class Imbalance |
+|-------|-----------|--------------------------|
 | Random Forest | Ensemble (100 trees) | `class_weight='balanced'` |
-| XGBoost | Gradient Boosting | `scale_pos_weight` for imbalance |
+| XGBoost | Gradient Boosting | `scale_pos_weight` |
 
-**Features used:**
-- Transaction amount, Hour of day, Location, Transaction type
-- Sender/Receiver bank, New device flag, Failed PIN attempts
-- Engineered: `is_night`, `is_high_amount`, `is_unknown_location`
+**Input Features:**
+
+| Feature | Type |
+|---------|------|
+| Transaction Amount | Numerical |
+| Hour of Day | Numerical |
+| Location | Categorical |
+| Transaction Type | Categorical |
+| Sender / Receiver Bank | Categorical |
+| New Device Flag | Binary |
+| Failed PIN Attempts | Numerical |
+| `is_night` | Engineered |
+| `is_high_amount` | Engineered |
+| `is_unknown_location` | Engineered |
 
 ---
 
 ## 📊 Risk Score Logic
 
-| Score | Level | Verdict |
-|-------|-------|---------|
-| 0–30% | 🟢 LOW | Legitimate |
-| 30–60% | 🟡 MEDIUM | Review |
-| 60–100% | 🔴 HIGH | Fraud |
-
----
-
-## 🧪 Google Colab
-
-Open the notebook for a zero-install version:
-
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/)
+| Score | Level | Action |
+|-------|-------|--------|
+| 0–30% | 🟢 LOW | Transaction is likely legitimate |
+| 30–60% | 🟡 MEDIUM | Needs manual review |
+| 60–100% | 🔴 HIGH | Likely fraudulent — block/alert |
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Python 3.9+**
-- **Streamlit** — web UI
-- **Scikit-learn** — Random Forest
-- **XGBoost** — gradient boosting
-- **Plotly** — interactive charts
-- **Pandas / NumPy** — data processing
-- **Joblib** — model serialisation
+| Tool | Purpose |
+|------|---------|
+| Python 3.9+ | Core language |
+| Streamlit | Web UI & dashboard |
+| Scikit-learn | Random Forest model |
+| XGBoost | Gradient boosting model |
+| Plotly | Interactive charts |
+| Pandas / NumPy | Data processing |
+| Joblib | Model serialisation |
 
 ---
 
 ## 👨‍💻 Author
 
-**Prince** — Big Data Capstone Project
-"# upi-fraud-detection" 
+**Kuldeep** — Big Data Capstone Project (Sem 3–4)
+
+[![GitHub](https://img.shields.io/badge/GitHub-KuldeepB19-black?logo=github)](https://github.com/KuldeepB19)
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
