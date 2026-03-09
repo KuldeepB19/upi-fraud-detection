@@ -9,10 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils import load_artifacts, engineer_features, FEATURES
 from src.train_model import train
 from src.data_generator import generate_transactions
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score,
-    f1_score, confusion_matrix, classification_report
-)
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title="Model Performance", page_icon="📈", layout="wide")
@@ -33,7 +30,7 @@ st.markdown("## 📈 Model Performance")
 st.caption("Evaluation metrics for Random Forest and XGBoost on test data")
 st.divider()
 
-# ── Load artifacts ────────────────────────────────────────────────────────────
+# ── Load artifacts ─────────────────────────────────────────────────────────────
 artifacts = load_artifacts()
 if artifacts is None:
     st.info("No trained model found. Training now...")
@@ -41,67 +38,60 @@ if artifacts is None:
         train()
     artifacts = load_artifacts()
 
-# ── Rebuild test set (same seed = same split as training) ─────────────────────
-@st.cache_data
-def get_test_data():
-    path = 'data/transactions.csv'
-    if not os.path.exists(path):
-        df = generate_transactions()
-    else:
-        df = pd.read_csv(path)
+# ── Load data + rebuild same test split ───────────────────────────────────────
+csv_path = 'data/transactions.csv'
+if not os.path.exists(csv_path):
+    df_full = generate_transactions()
+else:
+    df_full = pd.read_csv(csv_path)
 
-    X = engineer_features(df, artifacts['encoders'], artifacts['threshold'])
-    y = df['is_fraud']
+X_all = engineer_features(df_full, artifacts['encoders'], artifacts['threshold'])
+y_all = df_full['is_fraud']
 
-    _, X_test, _, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
-    return X_test, y_test
+_, X_test, _, y_test = train_test_split(
+    X_all, y_all, test_size=0.2, random_state=42, stratify=y_all
+)
 
-X_test, y_test = get_test_data()
+# ── Predictions from each model ───────────────────────────────────────────────
+rf_preds   = artifacts['rf'].predict(X_test)
+xgb_preds  = artifacts['xgb'].predict(X_test)
+rf_proba   = artifacts['rf'].predict_proba(X_test)[:, 1]
+xgb_proba  = artifacts['xgb'].predict_proba(X_test)[:, 1]
+ens_preds  = ((rf_proba + xgb_proba) / 2 >= 0.5).astype(int)
 
-# ── Get predictions ───────────────────────────────────────────────────────────
-rf_preds  = artifacts['rf'].predict(X_test)
-xgb_preds = artifacts['xgb'].predict(X_test)
+all_preds = {
+    'Random Forest' : rf_preds,
+    'XGBoost'       : xgb_preds,
+    'Ensemble (Avg)': ens_preds,
+}
 
-# Ensemble: average probabilities then threshold at 0.5
-rf_proba  = artifacts['rf'].predict_proba(X_test)[:, 1]
-xgb_proba = artifacts['xgb'].predict_proba(X_test)[:, 1]
-ens_proba = (rf_proba + xgb_proba) / 2
-ens_preds = (ens_proba >= 0.5).astype(int)
-
-def metrics(y_true, y_pred, name):
+# ── Metrics for all models ────────────────────────────────────────────────────
+def calc_metrics(y_true, y_pred, name):
     return {
         'Model'    : name,
         'Accuracy' : round(accuracy_score(y_true, y_pred) * 100, 2),
-        'Precision': round(precision_score(y_true, y_pred) * 100, 2),
-        'Recall'   : round(recall_score(y_true, y_pred) * 100, 2),
-        'F1 Score' : round(f1_score(y_true, y_pred) * 100, 2),
+        'Precision': round(precision_score(y_true, y_pred, zero_division=0) * 100, 2),
+        'Recall'   : round(recall_score(y_true, y_pred, zero_division=0) * 100, 2),
+        'F1 Score' : round(f1_score(y_true, y_pred, zero_division=0) * 100, 2),
     }
 
-results = [
-    metrics(y_test, rf_preds,  'Random Forest'),
-    metrics(y_test, xgb_preds, 'XGBoost'),
-    metrics(y_test, ens_preds, 'Ensemble (Avg)'),
-]
-results_df = pd.DataFrame(results)
+results_df = pd.DataFrame([
+    calc_metrics(y_test, rf_preds,  'Random Forest'),
+    calc_metrics(y_test, xgb_preds, 'XGBoost'),
+    calc_metrics(y_test, ens_preds, 'Ensemble (Avg)'),
+])
 
-# ── Model selector ────────────────────────────────────────────────────────────
+# ── Radio button — ABOVE everything so selection drives the cards + matrix ────
 selected = st.radio("Select model to inspect:",
                     ['Random Forest', 'XGBoost', 'Ensemble (Avg)'],
                     horizontal=True)
 
-preds_map = {
-    'Random Forest'  : rf_preds,
-    'XGBoost'        : xgb_preds,
-    'Ensemble (Avg)' : ens_preds,
-}
-chosen_preds = preds_map[selected]
+chosen_preds = all_preds[selected]
 chosen_row   = results_df[results_df['Model'] == selected].iloc[0]
 
 st.divider()
 
-# ── 4 KPI cards ───────────────────────────────────────────────────────────────
+# ── 4 KPI cards — update based on selected model ──────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
 
 def card(col, label, value, color):
@@ -118,20 +108,24 @@ card(c4, "F1 Score",  chosen_row['F1 Score'],  "#27AE60")
 
 st.write("")
 
-# ── Side by side: confusion matrix + comparison bar chart ─────────────────────
+# ── Confusion matrix + comparison chart ──────────────────────────────────────
 col_left, col_right = st.columns(2)
 
 with col_left:
-    st.markdown("#### Confusion Matrix")
+    st.markdown(f"#### Confusion Matrix — {selected}")
+
     cm = confusion_matrix(y_test, chosen_preds)
-    # cm = [[TN, FP], [FN, TP]]
-    labels = ['Legit (0)', 'Fraud (1)']
+    tn, fp, fn, tp = cm.ravel()
+
+    # Correct order: Fraud on top, Legit on bottom (matches sklearn output)
+    z    = [[tp, fn], [fp, tn]]
+    x    = ['Predicted Fraud', 'Predicted Legit']
+    y_ax = ['Actual Fraud',    'Actual Legit']
+
     fig = go.Figure(data=go.Heatmap(
-        z=cm,
-        x=['Predicted Legit', 'Predicted Fraud'],
-        y=['Actual Legit', 'Actual Fraud'],
+        z=z, x=x, y=y_ax,
         colorscale='Blues',
-        text=cm, texttemplate="%{text}",
+        text=z, texttemplate="%{text}",
         showscale=False
     ))
     fig.update_layout(
@@ -143,27 +137,24 @@ with col_left:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Plain English explanation below matrix
-    tn, fp, fn, tp = cm.ravel()
     st.markdown(f"""
-    - **True Negatives (TN) = {tn}** — Legit transactions correctly identified as legit  
-    - **False Positives (FP) = {fp}** — Legit transactions wrongly flagged as fraud  
-    - **False Negatives (FN) = {fn}** — Fraud transactions missed (most dangerous!)  
-    - **True Positives (TP) = {tp}** — Fraud transactions correctly caught
+- **True Positives (TP) = {tp}** — Fraud correctly caught ✅
+- **True Negatives (TN) = {tn}** — Legit correctly allowed ✅
+- **False Negatives (FN) = {fn}** — Fraud missed 🚨 (most dangerous!)
+- **False Positives (FP) = {fp}** — Legit wrongly flagged ⚠️
     """)
 
 with col_right:
     st.markdown("#### All Models Comparison")
     fig2 = go.Figure()
-    metrics_cols = ['Accuracy', 'Precision', 'Recall', 'F1 Score']
-    colors_list  = ['#2E86C1', '#8E44AD', '#E74C3C', '#27AE60']
+    metric_cols = ['Accuracy', 'Precision', 'Recall', 'F1 Score']
 
-    for i, row in results_df.iterrows():
+    for _, row in results_df.iterrows():
         fig2.add_trace(go.Bar(
             name=row['Model'],
-            x=metrics_cols,
-            y=[row[m] for m in metrics_cols],
-            text=[f"{row[m]}%" for m in metrics_cols],
+            x=metric_cols,
+            y=[row[m] for m in metric_cols],
+            text=[f"{row[m]}%" for m in metric_cols],
             textposition='outside',
         ))
 
@@ -181,20 +172,19 @@ with col_right:
 
 st.divider()
 
-# ── Full metrics table ────────────────────────────────────────────────────────
+# ── Full metrics table ─────────────────────────────────────────────────────────
 st.markdown("#### Full Metrics Table")
 st.dataframe(results_df.set_index('Model'), use_container_width=True)
 
 st.divider()
 
-# ── Feature importance (RF only) ──────────────────────────────────────────────
+# ── Feature importance ────────────────────────────────────────────────────────
 st.markdown("#### Feature Importance (Random Forest)")
 st.caption("Which features matter most when predicting fraud")
 
-importances = artifacts['rf'].feature_importances_
 feat_df = pd.DataFrame({
     'Feature'   : FEATURES,
-    'Importance': (importances * 100).round(2)
+    'Importance': (artifacts['rf'].feature_importances_ * 100).round(2)
 }).sort_values('Importance', ascending=True)
 
 fig3 = px.bar(feat_df, x='Importance', y='Feature', orientation='h',
