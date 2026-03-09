@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 LOCATIONS         = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
-                     'Kolkata', 'Pune', 'Ahmedabad', 'Jodhpur', 'Foreign']
+                     'Kolkata', 'Pune', 'Ahmedabad', 'Unknown', 'Foreign']
 TRANSACTION_TYPES = ['P2P', 'P2M', 'Bill Payment', 'Recharge', 'Online Shopping']
 BANKS             = ['SBI', 'HDFC', 'ICICI', 'Axis', 'Kotak', 'PNB', 'BOB']
 
