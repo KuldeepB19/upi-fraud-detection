@@ -11,7 +11,7 @@ from src.data_generator import generate_transactions, LOCATIONS
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="UPI Fraud Detection",
-    page_icon="🛡️",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
